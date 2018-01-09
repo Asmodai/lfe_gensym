@@ -45,8 +45,6 @@ gensyms."
                       syms)
        ,@body)))
 
-(macroexpand-all (once-only (x) `(+ ,x ,x)) $ENV)
-
 (defmacro once-only body
   "ONCE-ONLY symbols body
 
