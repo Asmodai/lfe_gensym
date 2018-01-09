@@ -34,6 +34,10 @@
 ;;;}}}
 
 (defmacro with-gensyms body
+  "WITH-GENSYMS symbols body
+
+Execute BODY in a context where the variables in SYMBOLS are bound to fresh
+gensyms."
   (let ((syms (car body))
         (body (cdr body)))
     `(let ,(lists:map (lambda (x)
@@ -41,21 +45,25 @@
                       syms)
        ,@body)))
 
+(macroexpand-all (once-only (x) `(+ ,x ,x)) $ENV)
+
 (defmacro once-only body
-  (let* ((names (car body))
-         (body (cdr body))
-         (gensyms (lists:map (lambda (x)
+  "ONCE-ONLY symbols body
+
+Execute BODY in a context where the values bound to the variables in SYMBOLS
+are bound to fresh gensyms, and the variables in SYMBOLS are bound to the
+corresponding gensym."
+  (let* ((symbols (car body))
+         (body    (cdr body))
+         (gensyms (lists:map (lambda (_)
                                (lfe_gensym:gensym))
-                             names)))
-    `(let (,@(lists:map (lambda (g)
-                          `(,g (lfe-gensym:gensym)))
-               gensyms))
-       `(let (,,@(lists:map (lambda (n g)
-                              ``(,n ,g))
-                   (lists:zip names gensyms)))
-          ,(let (,@(lists:map (lambda (n g)
-                                `(,n, g))
-                     (lists:zip names gensyms)))
-             ,@body)))))
+                             symbols)))
+    ``(let (,,@(lists:map (lambda (elt)
+                            ``(,',(element 1 elt) ,,(element 2 elt)))
+                          (lists:zip gensyms symbols)))
+        ,(let ,(lists:map (lambda (elt)
+                            `(,(element 1 elt) ',(element 2 elt)))
+                          (lists:zip symbols gensyms))
+           ,@body))))
 
 ;;; lfe_gensym.lfe ends here.
