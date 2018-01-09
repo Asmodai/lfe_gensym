@@ -1,5 +1,9 @@
 *~
+*.bak
+*.swp
+*.lock
+*.o
+*.so
 \#*
 _build/
 priv/
-*.lock

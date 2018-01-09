@@ -47,13 +47,15 @@
 # define INTEGER_MAX     UINT32_MAX
 #endif
 
+/* Prototypes, so gcc shuts up. */
+INTEGER_TYPE gensym_incr(void);
+
 /**
  * @brief Gensym counter.
  *
  * This is meant to mirror CL's *GENSYM-COUNTER*, except it is read-only.
  */
 typedef struct {
-  ErlNifMutex  *lock;                   /*!< Mutex. */
   INTEGER_TYPE  value;                  /*!< Gensym counter value. */
 } gensym_t;
 
@@ -63,55 +65,6 @@ typedef struct {
 static gensym_t *gensym_counter = NULL;
 
 /**
- * @brief Initialise the gensym counter.
- * @returns A newly-initialised gensym counter.
- */
-gensym_t *
-gensym_create(void)
-{
-  gensym_t *ret = NULL;
-
-  if ((ret = (gensym_t *)enif_alloc(sizeof *ret)) == NULL) {
-    return NULL;
-  }
-
-  ret->lock  = NULL;
-  ret->value = 0;
-
-  if ((ret->lock = enif_mutex_create("gensym_lock")) != NULL) {
-    return ret;
-  }
-
-  if (ret->lock != NULL) {
-    enif_mutex_destroy(ret->lock);
-  }
-
-  if (ret != NULL) {
-    enif_free(ret);
-  }
-
-  return NULL;
-}
-
-/**
- * @brief Destroy a gensym counter.
- * @param counter The counter to destroy.
- */
-void
-gensym_destroy(gensym_t *counter)
-{
-  ErlNifMutex *lock = NULL;
-
-  enif_mutex_lock(counter->lock);
-  lock          = counter->lock;
-  counter->lock = NULL;
-  enif_mutex_unlock(counter->lock);
-
-  enif_mutex_destroy(lock);
-  enif_free(counter);
-}
-
-/**
  * @brief Increment the gensym counter.
  * @returns The value of the incremented counter.
  * @note Wraps around if an increment would cause an overflow.
@@ -119,10 +72,6 @@ gensym_destroy(gensym_t *counter)
 INTEGER_TYPE
 gensym_incr(void)
 {
-  INTEGER_TYPE ret = 0;
-
-  enif_mutex_lock(gensym_counter->lock);
-
   if (gensym_counter->value == INTEGER_MAX) {
     /*
      * On Common Lisp, if *GENSYM-COUNTER* reaches MOST-POSITIVE-FIXNUM, the
@@ -131,26 +80,22 @@ gensym_incr(void)
      * for now we simply wrap.
      */
     gensym_counter->value = 0;
-  } else {
-    gensym_counter->value++;
   }
-
-  ret = gensym_counter->value;
-
-  enif_mutex_unlock(gensym_counter->lock);
-
-  return ret;
+  
+  return ++gensym_counter->value;
 }
 
 /**
  * @brief Action to take when the nif is loaded.
  * @param env The environment (unused).
  * @param priv Private data (unused).
- * @param load_info Don't know, don't care, don't use.
+ * @param load_info Second argument to erlang:load_nif/2.
  */
 static
 int
-load(ErlNifEnv *env, void **priv, ERL_NIF_TERM load_info)
+load(ErlNifEnv     *env,
+     void         **priv,
+     ERL_NIF_TERM   load_info)
 {
   if (gensym_counter == NULL) {
     gensym_counter = (gensym_t *)enif_alloc(sizeof *gensym_counter);
@@ -158,9 +103,7 @@ load(ErlNifEnv *env, void **priv, ERL_NIF_TERM load_info)
       return -1;
     }
 
-    if ((gensym_counter = gensym_create()) == NULL) {
-      return -1;
-    }
+    gensym_counter->value = 1;
   }
 
   return 0;
@@ -175,7 +118,10 @@ static
 void
 unload(ErlNifEnv *env, void *priv)
 {
-  gensym_destroy(gensym_counter);
+  if (gensym_counter != NULL) {
+    enif_free(gensym_counter);
+    gensym_counter = NULL;
+  }
 }
 
 /**
@@ -192,9 +138,7 @@ gensym_counter_nif(ErlNifEnv          *env,
                    int                 argc,
                    const ERL_NIF_TERM  argv[])
 {
-  INTEGER_TYPE cnt = 0;
-
-  cnt = gensym_incr();
+  INTEGER_TYPE cnt = gensym_incr();
 
   return enif_make_int(env, cnt);
 }
