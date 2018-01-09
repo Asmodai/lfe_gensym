@@ -101,7 +101,7 @@ load(ErlNifEnv     *env,
     }
 
     gensym_counter->max   = (unsigned int)(limit * 0.10);
-    gensym_counter->value = 1;
+    gensym_counter->value = 0;
   }
   
   return 0;
