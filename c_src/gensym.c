@@ -39,13 +39,12 @@
 
 #include "erl_nif.h"
 
-#if __WORDSIZE == 64
-# define INTEGER_TYPE    uint64_t
-# define INTEGER_MAX     UINT64_MAX
-#else
-# define INTEGER_TYPE    uint32_t
-# define INTEGER_MAX     UINT32_MAX
-#endif
+/*
+ * Erlang will crash when the atom table reaches its maximal count, which will
+ * happen before uint32_t or uint64_t will run out of bits.
+ */
+#define INTEGER_TYPE    uint16_t
+#define INTEGER_MAX     UINT16_MAX
 
 /* Prototypes, so gcc shuts up. */
 INTEGER_TYPE gensym_incr(void);
