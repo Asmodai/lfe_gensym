@@ -7,3 +7,5 @@
 \#*
 _build/
 priv/
+ebin/
+.rebar3/

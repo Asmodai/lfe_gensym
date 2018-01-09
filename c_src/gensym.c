@@ -35,19 +35,12 @@
  */
 
 #include <stdint.h>
-#include <limits.h>
+#include <stdbool.h>
 
 #include "erl_nif.h"
 
-/*
- * Erlang will crash when the atom table reaches its maximal count, which will
- * happen before uint32_t or uint64_t will run out of bits.
- */
-#define INTEGER_TYPE    uint16_t
-#define INTEGER_MAX     UINT16_MAX
-
 /* Prototypes, so gcc shuts up. */
-INTEGER_TYPE gensym_incr(void);
+unsigned int gensym_incr(void);
 
 /**
  * @brief Gensym counter.
@@ -55,7 +48,8 @@ INTEGER_TYPE gensym_incr(void);
  * This is meant to mirror CL's *GENSYM-COUNTER*, except it is read-only.
  */
 typedef struct {
-  INTEGER_TYPE  value;                  /*!< Gensym counter value. */
+  unsigned int max;                     /*!< Maximum number of atoms. */
+  unsigned int value;                   /*!< Gensym counter value. */
 } gensym_t;
 
 /**
@@ -68,16 +62,10 @@ static gensym_t *gensym_counter = NULL;
  * @returns The value of the incremented counter.
  * @note Wraps around if an increment would cause an overflow.
  */
-INTEGER_TYPE
+unsigned int
 gensym_incr(void)
 {
-  if (gensym_counter->value == INTEGER_MAX) {
-    /*
-     * On Common Lisp, if *GENSYM-COUNTER* reaches MOST-POSITIVE-FIXNUM, the
-     * value is promoted to bignum.  I should really implement this, but
-     * I know nothing of how Erlang represents bignums internally (GMP?), so
-     * for now we simply wrap.
-     */
+  if (gensym_counter->value == gensym_counter->max) {
     gensym_counter->value = 0;
   }
   
@@ -88,7 +76,7 @@ gensym_incr(void)
  * @brief Action to take when the nif is loaded.
  * @param env The environment (unused).
  * @param priv Private data (unused).
- * @param load_info Second argument to erlang:load_nif/2.
+ * @param load_info The atom_tab size limit obtained from erlang:system_info.
  */
 static
 int
@@ -96,15 +84,26 @@ load(ErlNifEnv     *env,
      void         **priv,
      ERL_NIF_TERM   load_info)
 {
+  unsigned int limit = 0;
+
+  if (!enif_is_number(env, load_info)) {
+    return -1;
+  }
+
+  if (!enif_get_uint(env, load_info, &limit)) {
+    return -1;
+  }
+
   if (gensym_counter == NULL) {
     gensym_counter = (gensym_t *)enif_alloc(sizeof *gensym_counter);
     if (gensym_counter == NULL) {
       return -1;
     }
 
+    gensym_counter->max   = (unsigned int)(limit * 0.10);
     gensym_counter->value = 1;
   }
-
+  
   return 0;
 }
 
@@ -137,16 +136,34 @@ gensym_counter_nif(ErlNifEnv          *env,
                    int                 argc,
                    const ERL_NIF_TERM  argv[])
 {
-  INTEGER_TYPE cnt = gensym_incr();
+  unsigned int cnt = gensym_incr();
 
   return enif_make_int(env, cnt);
+}
+
+/**
+ * @brief Return the maximum value that the gensym counter can contain.
+ * @param env The environment.
+ * @param argc Count of arguments.
+ * @param argv Array of arguments.
+ * @returns The maximum gensym counter value.
+ * @note Ignores its arguments.
+ */
+static
+ERL_NIF_TERM
+most_positive_gensym(ErlNifEnv          *env,
+                     int                 argc,
+                     const ERL_NIF_TERM  argv[])
+{
+  return enif_make_int(env, gensym_counter->max);
 }
 
 /**
  * @brief NIF function(s) we export.
  */
 static ErlNifFunc nif_funcs[] = {
-  {"gensym_counter", 0, gensym_counter_nif}
+  { "gensym_counter",       0, gensym_counter_nif   },
+  { "most_positive_gensym", 0, most_positive_gensym }
 };
 
 /*

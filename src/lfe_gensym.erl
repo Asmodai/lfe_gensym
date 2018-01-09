@@ -33,8 +33,8 @@
 -compile(export_all).
 -endif.
 
--export([gensym_counter/0,
-         gensym/1,
+-export([most_positive_gensym/0,
+         gensym_counter/0,
          gensym/0]).
 
 -on_load(init/0).
@@ -42,20 +42,64 @@
 -define(APPNAME, lfe_gensym).
 -define(LIBNAME, lfe_gensym).
 
-init() ->
-    SoName = case code:priv_dir(?APPNAME) of
-                 {error, bad_name} ->
-                     case filelib:is_dir(filename:join(["..", priv])) of
-                         true -> filename:join(["..", priv, ?LIBNAME]);
-                         _    -> filename:join([priv, ?LIBNAME])
-                     end;
-                 Dir               ->
-                     filename:join(Dir, ?LIBNAME)
-             end,
-    erlang:load_nif(SoName, 0).
+%%----------------------------------------------------------------------------
+%% atom_tab_limit() -> pos_number()
+%%
+%% Description: Returns the atom limit for the Erlang VM.
+%%----------------------------------------------------------------------------
+atom_tab_limit() ->
+    try erlang:system_info(atom_count) of
+        N -> N
+    catch
+        error:badarg -> atom_tab_limit_helper();
+        _:Error      -> {error, caught, Error}
+    end.
 
+%%----------------------------------------------------------------------------
+%% atom_tab_limit_helper() -> pos_number()
+%%
+%% Description: Returns the atom limit for the Erlang VM.
+%% This is called should `erlang:system_info(atom_count)' throw an error.
+%%----------------------------------------------------------------------------
+atom_tab_limit_helper() ->
+    Info      = erlang:system_info(info),
+    Chunks    = binary:split(Info, <<"=">>, [global]),
+    [TabInfo] = [X || <<"index_table:atom_tab", X/binary>> <- Chunks],
+    Lines     = binary:split(TabInfo, <<"\n">>, [global]),
+    Chunks2   = [binary:split(L, <<": ">>) || L <- Lines, L =/= <<>>],
+    PropList  = [list_to_tuple(X) || X <- Chunks2],
+    binary_to_integer(proplists:get_value(<<"limit">>, PropList)).
+
+%%----------------------------------------------------------------------------
+%% Description: Initialise the C module.
+%%----------------------------------------------------------------------------
+init() ->
+    SoName  = case code:priv_dir(?APPNAME) of
+                  {error, bad_name} ->
+                      case filelib:is_dir(filename:join(["..", priv])) of
+                          true -> filename:join(["..", priv, ?LIBNAME]);
+                          _    -> filename:join([priv, ?LIBNAME])
+                      end;
+                  Dir               ->
+                      filename:join(Dir, ?LIBNAME)
+              end,
+    AtomTab = atom_tab_limit(),
+    ok      = erlang:load_nif(SoName, AtomTab).
+
+%%----------------------------------------------------------------------------
+%% Trigger an exit if the C module is not loaded.
+%%----------------------------------------------------------------------------
 not_loaded(Line) ->
     exit({not_loaded, [{module, ?MODULE}, {line, Line}]}).
+
+%%----------------------------------------------------------------------------
+%% most_positive_gensym() -> pos_number()
+%%
+%% Description: Returns the highest number the gensym counter can reach before
+%% it wraps around.
+%%----------------------------------------------------------------------------
+most_positive_gensym() ->
+    not_loaded(?LINE).
 
 %%----------------------------------------------------------------------------
 %% gensym_counter() -> pos_number()
@@ -77,20 +121,8 @@ gensym_counter() ->
 %% http://www.lispworks.com/documentation/HyperSpec/Body/f_gensym.htm
 %%----------------------------------------------------------------------------
 gensym() ->
-    gensym("G").
-
-%%----------------------------------------------------------------------------
-%% gensym(Symbolprefix) -> atom()
-%%   SymbolPrefix - string()
-%%
-%% Description: Returns a fresh symbol with the given prefix.
-%%
-%% For information on how GENSYM works, see:
-%% http://www.lispworks.com/documentation/HyperSpec/Body/f_gensym.htm
-%%----------------------------------------------------------------------------
-gensym(Prefix) ->
     list_to_atom(
       lists:flatten(
-        io_lib:format("~s~w", [Prefix, gensym_counter()]))).
+        io_lib:format("sym_~w", [gensym_counter()]))).
 
 %% lfe_gensym.erl ends here.
