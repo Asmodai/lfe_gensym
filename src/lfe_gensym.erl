@@ -49,7 +49,7 @@
 %% Description: Returns the atom limit for the Erlang VM.
 %%----------------------------------------------------------------------------
 atom_tab_limit() ->
-    try erlang:system_info(atom_count) of
+    try erlang:system_info(atom_limit) of
         N -> N
     catch
         error:badarg -> atom_tab_limit_helper();
