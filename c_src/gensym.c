@@ -53,7 +53,7 @@ typedef struct {
 /**
  * @brief Counter instance.
  */
-static gensym_t *gensym_counter = NULL;
+static gensym_t gensym_counter = { 0 };
 
 /**
  * @brief Increment the gensym counter.
@@ -63,11 +63,11 @@ static gensym_t *gensym_counter = NULL;
 unsigned int
 gensym_incr(void)
 {
-  if (gensym_counter->value == gensym_counter->max) {
-    gensym_counter->value = 0;
+  if (gensym_counter.value == gensym_counter.max) {
+    gensym_counter.value = 0;
   }
   
-  return ++gensym_counter->value;
+  return ++gensym_counter.value;
 }
 
 /**
@@ -92,32 +92,10 @@ load(ErlNifEnv     *env,
     return -1;
   }
 
-  if (gensym_counter == NULL) {
-    gensym_counter = (gensym_t *)enif_alloc(sizeof *gensym_counter);
-    if (gensym_counter == NULL) {
-      return -1;
-    }
-
-    gensym_counter->max   = (unsigned int)(limit * 0.10);
-    gensym_counter->value = 0;
-  }
+  gensym_counter.max   = (unsigned int)(limit * 0.10);
+  gensym_counter.value = 0;
   
   return 0;
-}
-
-/**
- * @brief Action to take when the nif is unloaded.
- * @param env The environment (unused).
- * @param priv Private data (unused).
- */
-static
-void
-unload(ErlNifEnv *env, void *priv)
-{
-  if (gensym_counter != NULL) {
-    enif_free(gensym_counter);
-    gensym_counter = NULL;
-  }
 }
 
 /**
@@ -138,8 +116,8 @@ gensym_system_info(ErlNifEnv          *env,
                    const ERL_NIF_TERM  argv[])
 {
   return enif_make_tuple2(env,
-                          enif_make_int(env, gensym_counter->max),
-                          enif_make_int(env, gensym_counter->value));
+                          enif_make_int(env, gensym_counter.max),
+                          enif_make_int(env, gensym_counter.value));
 }
 
 /**
@@ -173,7 +151,7 @@ most_positive_gensym(ErlNifEnv          *env,
                      int                 argc,
                      const ERL_NIF_TERM  argv[])
 {
-  return enif_make_int(env, gensym_counter->max);
+  return enif_make_int(env, gensym_counter.max);
 }
 
 /**
@@ -188,6 +166,6 @@ static ErlNifFunc nif_funcs[] = {
 /*
  * Initialise the NIF.
  */
-ERL_NIF_INIT(lfe_gensym, nif_funcs, &load, NULL, NULL, &unload);
+ERL_NIF_INIT(lfe_gensym, nif_funcs, &load, NULL, NULL, NULL);
 
 /* gensym.c ends here. */
