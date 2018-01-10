@@ -35,8 +35,6 @@
  */
 
 #include <stdint.h>
-#include <stdbool.h>
-
 #include "erl_nif.h"
 
 /* Prototypes, so gcc shuts up. */
@@ -136,9 +134,7 @@ gensym_counter_nif(ErlNifEnv          *env,
                    int                 argc,
                    const ERL_NIF_TERM  argv[])
 {
-  unsigned int cnt = gensym_incr();
-
-  return enif_make_int(env, cnt);
+  return enif_make_int(env, gensym_incr());
 }
 
 /**
