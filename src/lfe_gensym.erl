@@ -33,7 +33,8 @@
 -compile(export_all).
 -endif.
 
--export([most_positive_gensym/0,
+-export([system_info/0,
+         most_positive_gensym/0,
          gensym_counter/0,
          gensym/0]).
 
@@ -91,6 +92,19 @@ init() ->
 %%----------------------------------------------------------------------------
 not_loaded(Line) ->
     exit({not_loaded, [{module, ?MODULE}, {line, Line}]}).
+
+%%----------------------------------------------------------------------------
+%% system_info() -> tuple()
+%%
+%% Description: Returns a tuple containing various bits of 'system'
+%% information.
+%%
+%% As of now, the value returned is {limit, count}, where:
+%%    o `limit' is the maximum gensym counter value,
+%%    o `count' is the current gensym counter value.
+%%----------------------------------------------------------------------------
+system_info() ->
+    not_loaded(?LINE).
 
 %%----------------------------------------------------------------------------
 %% most_positive_gensym() -> pos_number()

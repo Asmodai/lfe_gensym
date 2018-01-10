@@ -121,6 +121,28 @@ unload(ErlNifEnv *env, void *priv)
 }
 
 /**
+ * @brief Return gensym system information.
+ * @param env The environment.
+ * @param argc Count of arguments.
+ * @param argv Array of arguments.
+ * @returns A tuple with 2 elements.
+ *
+ * The tuple returned is in the form:
+ *
+ *   @c { @c limit @c , @c count @c }
+ */
+static
+ERL_NIF_TERM
+gensym_system_info(ErlNifEnv          *env,
+                   int                 argc,
+                   const ERL_NIF_TERM  argv[])
+{
+  return enif_make_tuple2(env,
+                          enif_make_int(env, gensym_counter->max),
+                          enif_make_int(env, gensym_counter->value));
+}
+
+/**
  * @brief Get and increment the gensym counter.
  * @param env The environment.
  * @param argc Count of arguments.
@@ -159,7 +181,8 @@ most_positive_gensym(ErlNifEnv          *env,
  */
 static ErlNifFunc nif_funcs[] = {
   { "gensym_counter",       0, gensym_counter_nif   },
-  { "most_positive_gensym", 0, most_positive_gensym }
+  { "most_positive_gensym", 0, most_positive_gensym },
+  { "system_info",          0, gensym_system_info   }
 };
 
 /*
