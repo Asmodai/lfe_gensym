@@ -34,7 +34,7 @@
 -endif.
 
 -export([system_info/0,
-         most_positive_gensym/0,
+         gensym_limit/0,
          gensym_counter/0,
          gensym/0]).
 
@@ -107,12 +107,12 @@ system_info() ->
     not_loaded(?LINE).
 
 %%----------------------------------------------------------------------------
-%% most_positive_gensym() -> pos_number()
+%% gensym_limit() -> pos_number()
 %%
 %% Description: Returns the highest number the gensym counter can reach before
 %% it wraps around.
 %%----------------------------------------------------------------------------
-most_positive_gensym() ->
+gensym_limit() ->
     not_loaded(?LINE).
 
 %%----------------------------------------------------------------------------
@@ -135,8 +135,6 @@ gensym_counter() ->
 %% http://www.lispworks.com/documentation/HyperSpec/Body/f_gensym.htm
 %%----------------------------------------------------------------------------
 gensym() ->
-    list_to_atom(
-      lists:flatten(
-        io_lib:format("sym_~w", [gensym_counter()]))).
+    not_loaded(?LINE).
 
 %% lfe_gensym.erl ends here.

@@ -34,7 +34,9 @@
  * @brief LFE `gensym' hack.
  */
 
+#include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include "erl_nif.h"
 
 /* Prototypes, so gcc shuts up. */
@@ -47,6 +49,7 @@ unsigned int gensym_incr(void);
  */
 typedef struct {
   unsigned int max;                     /*!< Maximum number of atoms. */
+  unsigned int created;                 /*!< Number of gensyms created. */
   unsigned int value;                   /*!< Gensym counter value. */
 } gensym_t;
 
@@ -54,6 +57,44 @@ typedef struct {
  * @brief Counter instance.
  */
 static gensym_t gensym_counter = { 0 };
+
+/**
+ * @brief Prefix for symbol names.
+ */
+static const char *const gensym_prefix = "sym_";
+
+/**
+ * @brief Compute and return the length of a printed representation of a number.
+ * @param num The number.
+ * @returns A length.
+ */
+static
+size_t
+numlen(unsigned int num)
+{
+  char buf[128];
+
+  return snprintf(buf, 127, "%d", num);
+}
+
+/**
+ * @brief Create and return an Erlang atom.
+ * @param env The environment.
+ * @param atom The name of the atom.
+ * @returns An existing atom of the same name or a freshly created atom.
+ */
+static
+ERL_NIF_TERM
+mk_atom(ErlNifEnv *env, const char *atom)
+{
+  ERL_NIF_TERM ret = 0;
+
+  if (!enif_make_existing_atom(env, atom, &ret, ERL_NIF_LATIN1)) {
+    return enif_make_atom(env, atom);
+  }
+
+  return ret;
+}
 
 /**
  * @brief Increment the gensym counter.
@@ -65,6 +106,10 @@ gensym_incr(void)
 {
   if (gensym_counter.value == gensym_counter.max) {
     gensym_counter.value = 0;
+  }
+
+  if (gensym_counter.created < gensym_counter.max) {
+    gensym_counter.created++;
   }
   
   return ++gensym_counter.value;
@@ -92,8 +137,9 @@ load(ErlNifEnv     *env,
     return -1;
   }
 
-  gensym_counter.max   = (unsigned int)(limit * 0.10);
-  gensym_counter.value = 0;
+  gensym_counter.max     = (unsigned int)(limit * 0.10);
+  gensym_counter.created = 0;
+  gensym_counter.value   = 1;
   
   return 0;
 }
@@ -107,7 +153,7 @@ load(ErlNifEnv     *env,
  *
  * The tuple returned is in the form:
  *
- *   @c { @c limit @c , @c count @c }
+ *   @c { @c limit @c , @c created @c }
  */
 static
 ERL_NIF_TERM
@@ -117,11 +163,11 @@ gensym_system_info(ErlNifEnv          *env,
 {
   return enif_make_tuple2(env,
                           enif_make_int(env, gensym_counter.max),
-                          enif_make_int(env, gensym_counter.value));
+                          enif_make_int(env, gensym_counter.created));
 }
 
 /**
- * @brief Get and increment the gensym counter.
+ * @brief Return the value that will be used for the next gensym.
  * @param env The environment.
  * @param argc Count of arguments.
  * @param argv Array of arguments.
@@ -134,7 +180,7 @@ gensym_counter_nif(ErlNifEnv          *env,
                    int                 argc,
                    const ERL_NIF_TERM  argv[])
 {
-  return enif_make_int(env, gensym_incr());
+  return enif_make_int(env, gensym_counter.value);
 }
 
 /**
@@ -147,20 +193,56 @@ gensym_counter_nif(ErlNifEnv          *env,
  */
 static
 ERL_NIF_TERM
-most_positive_gensym(ErlNifEnv          *env,
-                     int                 argc,
-                     const ERL_NIF_TERM  argv[])
+gensym_limit(ErlNifEnv          *env,
+             int                 argc,
+             const ERL_NIF_TERM  argv[])
 {
   return enif_make_int(env, gensym_counter.max);
+}
+
+/**
+ * @brief Generate and return a fresh symbol.
+ * @param env The environment.
+ * @param argc Count of arguments.
+ * @param argv Array of arguments.
+ * @returns An Erlang atom, or a tuple of two atoms if there is an error.
+ * @note Ignores its arguments.
+ */
+static
+ERL_NIF_TERM
+gensym(ErlNifEnv          *env,
+       int                 argc,
+       const ERL_NIF_TERM  argv[])
+{
+  static size_t  prefixlen = 0;
+  size_t         len       = 0;
+  char          *buf       = NULL;
+
+  if (prefixlen == 0) {
+    prefixlen = strlen(gensym_prefix);
+  }
+
+  len = prefixlen + numlen(gensym_counter.value) + 1;
+
+  if ((buf = enif_alloc(sizeof(char) * len)) == NULL) {
+    return enif_make_tuple2(env,
+                            mk_atom(env, "error"),
+                            mk_atom(env, "out_of_memory"));
+  }
+
+  snprintf(buf, len, "%s%d", gensym_prefix, gensym_counter.value);
+  gensym_incr();
+  return mk_atom(env, buf);
 }
 
 /**
  * @brief NIF function(s) we export.
  */
 static ErlNifFunc nif_funcs[] = {
-  { "gensym_counter",       0, gensym_counter_nif   },
-  { "most_positive_gensym", 0, most_positive_gensym },
-  { "system_info",          0, gensym_system_info   }
+  { "gensym_counter", 0, gensym_counter_nif },
+  { "gensym_limit",   0, gensym_limit       },
+  { "system_info",    0, gensym_system_info },
+  { "gensym",         0, gensym             }
 };
 
 /*
