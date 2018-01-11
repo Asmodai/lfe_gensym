@@ -39,9 +39,6 @@
 #include <string.h>
 #include "erl_nif.h"
 
-/* Prototypes, so gcc shuts up. */
-unsigned int gensym_incr(void);
-
 /**
  * @brief Gensym counter.
  *
@@ -72,9 +69,25 @@ static
 size_t
 numlen(unsigned int num)
 {
-  char buf[128];
+  if (num >= 100000) {
+    if (num >= 10000000) {
+      if (num >= 1000000000) return 10;
+      if (num >= 100000000)  return 9;
+      return 8;
+    }
 
-  return snprintf(buf, 127, "%d", num);
+    if (num >= 1000000) return 7;
+    return 6;
+  } else {
+    if (num >= 1000) {
+      if (num >= 10000) return 5;
+      return 4;
+    } else {
+      if (num >= 100) return 3;
+      if (num >= 10)  return 2;
+      return 1;
+    }
+  }
 }
 
 /**
@@ -101,6 +114,7 @@ mk_atom(ErlNifEnv *env, const char *atom)
  * @returns The value of the incremented counter.
  * @note Wraps around if an increment would cause an overflow.
  */
+static
 unsigned int
 gensym_incr(void)
 {
