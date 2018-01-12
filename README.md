@@ -2,6 +2,22 @@ Hi, Emacs! -*- mode: gfm -*-
 
 # `GENSYM` for LFE
 
+## Table of Contents
+   * [GENSYM for LFE](#gensym-for-lfe)
+      * [Introduction](#introduction)
+      * [Simple Tutorial](#simple-tutorial)
+      * [Internals](#internals)
+         * [Atom table limit](#atom-table-limit)
+         * [Symbol naming](#symbol-naming)
+      * [Table of Contents](#table-of-contents)
+      * [Dictionary](#dictionary)
+         * [GENSYM [function]](#gensym-function)
+         * [GENSYM_COUNTER [function]](#gensym_counter-function)
+         * [GENSYM_LIMIT [function]](#gensym_limit-function)
+         * [ONCE-ONLY [macro]](#once-only-macro)
+         * [SYSTEM_INFO [function]](#system_info-function)
+         * [WITH-GENSYMS [macro]](#with-gensyms-macro)
+
 ## Introduction
 This project is an attempt at adding `gensym` functionality to LFE, giving
 hackers a mechanic to help avoid the accidental capture of identifiers when
@@ -100,16 +116,6 @@ component of the next symbol generated, this implementation takes zero
 arguments.  This is to help prevent atom table exhaustion, and should not have
 any detrimental affect on code, but it is something to watch out for when
 porting code from other Lisp implementations.
-
-## Table of Contents
-   * [Maclisp-like GENSYM for LFE](#maclisp-like-gensym-for-lfe)
-      * [Dictionary](#dictionary)
-         * [GENSYM [function]](#gensym-function)
-         * [GENSYM_COUNTER [function]](#gensym_counter-function)
-         * [GENSYM_LIMIT [function]](#gensym_limit-function)
-         * [ONCE-ONLY [macro]](#once-only-macro)
-         * [SYSTEM_INFO [function]](#system_info-function)
-         * [WITH-GENSYMS [macro]](#with-gensyms-macro)
 
 ## Dictionary
 
