@@ -1,7 +1,105 @@
 Hi, Emacs! -*- mode: gfm -*-
 
-# Maclisp-like `GENSYM` for LFE
+# `GENSYM` for LFE
 
+## Introduction
+This project is an attempt at adding `gensym` functionality to LFE, giving
+hackers a mechanic to help avoid the accidental capture of identifiers when
+writing macros.
+
+## Simple Tutorial
+If LFE is your first exposure to Lisp, you might not have come across `gensym`
+before, so I will attempt to describe it here and show an example of its usage.
+
+First, let us consider the following trivial macro:
+``` lisp
+(defmacro square (value)
+  `(* ,value ,value))
+```
+At first glance, the macro is simple enough; it generates code that multiplies
+`value` by itself.  This is a highly trivialised example that you will probably
+never see in the real world.
+
+Now, let us imagine that `square` is invoked with a function as its
+argument.  Imagine that the function is:
+``` lisp
+(defun random (limit)
+  (erlang:trunc (* (rand:uniform) limit)))
+```
+What happens when we invoke `(square (random 10))`?  Place bets now.
+
+Let's walk through an exansion:
+``` lisp
+  (square (random 10))
+⇒ (* (random 10) (random 10))
+⇒ (* 3 (random 10))
+⇒ (* 3 8)
+⇒ 24
+```
+Unless you already knew about this issue, this result is probably not what you
+were expecting.
+
+This is where `gensym` comes into play.  The `gensym` function itself returns a
+fresh symbol that can be used inside a macro body in order to provide a means of
+temporarily storing a value.
+
+We could re-write `square` in this way:
+``` lisp
+(defmacro square (value)
+  (let ((temp (gensym)))
+    `(let ((,temp ,value))
+       (* ,temp ,temp))))
+```
+Now when we invoke `(square (random 10))`, the following expansion occurs:
+``` lisp
+  (square (random 10))
+⇒ (let ((sym_1 (random 10)))
+    (* sym_1 sym_1))
+⇒ (let ((sym_1 8))
+    (* sym_1 sym_1)
+⇒ (let ((sym_1 8))
+    (* 8 sym_1)
+⇒ (let ((sym_1 8))
+    (* 8 8)
+⇒ 64
+```
+As you can see, this technique allows us to ensure that evaluation only occurs
+once.
+
+This might look like a lot of typing, but imagine we could do something like:
+``` lisp
+(defun square (x)
+  (with-gensyms (temp)
+    `(let ((,temp ,x))
+       (* ,temp ,temp))))
+```
+Turns out that we can.  This package provides an `with-gensyms` macro in
+`include/lfe_gensym.lfe`.
+
+What if we want to write the `square` macro like this:
+``` lisp
+(defun square (x)
+  (once-only (x)
+    `(* ,x ,x)))
+```
+Turns out that we can write the macro like this, too.  This package also
+provides a `once-only` macro in `include/lfe_gensym.lfe`.
+
+## Internals
+### Atom table limit
+In an attempt to avoid causing Erlang to hard crash due to exhaustion of the
+atom table, this gensym implementation defaults to allowing only 10% of the atom
+table to be used for gensym's purposes.  Once this limit is reached, `gensym`
+will return a symbol that already exists.  This should not cause any issues,
+however.
+
+### Symbol naming
+Unlike other Lisps where `gensym` takes an argument and/or variables like
+`*gensym-counter*` can be modified to influence the name and/or numeric
+component of the next symbol generated, this implementation takes zero
+arguments.  This is to help prevent atom table exhaustion, and should not have
+any detrimental affect on code, but it is something to watch out for when
+porting code from other Lisp implementations.
 
 ## Table of Contents
    * [Maclisp-like GENSYM for LFE](#maclisp-like-gensym-for-lfe)
