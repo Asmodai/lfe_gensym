@@ -109,6 +109,8 @@ table to be used for gensym's purposes.  Once this limit is reached, `gensym`
 will return a symbol that already exists.  This should not cause any issues,
 however.
 
+With that said, this has not been tested with distributed code, so caveat emptor.
+
 ### Symbol naming
 Unlike other Lisps where `gensym` takes an argument and/or variables like
 `*gensym-counter*` can be modified to influence the name and/or numeric

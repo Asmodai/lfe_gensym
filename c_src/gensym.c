@@ -39,6 +39,12 @@
 #include <string.h>
 #include "erl_nif.h"
 
+/* Prototypes. */
+unsigned int base_two_digits(unsigned int);
+size_t       numlen(unsigned int);
+ERL_NIF_TERM mk_atom(ErlNifEnv *, const char *);
+unsigned int gensym_incr(void);
+
 /**
  * @brief Gensym counter.
  *
@@ -51,6 +57,22 @@ typedef struct {
 } gensym_t;
 
 /**
+ * @brief 'ten to the' modifiers.
+ */
+static unsigned int ten_to_the[] = {
+  1,
+  10,
+  100,
+  1000,
+  10000,
+  100000,
+  1000000,
+  10000000,
+  100000000,
+  1000000000,
+};
+
+/**
  * @brief Counter instance.
  */
 static gensym_t gensym_counter = { 0 };
@@ -61,33 +83,31 @@ static gensym_t gensym_counter = { 0 };
 static const char *const gensym_prefix = "sym_";
 
 /**
+ * @brief get the number of digits in a number using a cheap base 2 method.
+ */
+unsigned int
+base_two_digits(unsigned int x)
+{
+  return x ? 32 - __builtin_clz(x) : 0;
+}
+
+/**
  * @brief Compute and return the length of a printed representation of a number.
  * @param num The number.
  * @returns A length.
  */
-static
 size_t
 numlen(unsigned int num)
 {
-  if (num >= 100000) {
-    if (num >= 10000000) {
-      if (num >= 1000000000) return 10;
-      if (num >= 100000000)  return 9;
-      return 8;
-    }
+  static unsigned int guess[33] = {
+    0, 0, 0, 0, 1, 1, 1, 2, 2, 2,
+    3, 3, 3, 3, 4, 4, 4, 5, 5, 5,
+    6, 6, 6, 6, 7, 7, 7, 8, 8, 8,
+    9, 9, 9
+  };
+  unsigned int digits = guess[base_two_digits(num)];
 
-    if (num >= 1000000) return 7;
-    return 6;
-  } else {
-    if (num >= 1000) {
-      if (num >= 10000) return 5;
-      return 4;
-    } else {
-      if (num >= 100) return 3;
-      if (num >= 10)  return 2;
-      return 1;
-    }
-  }
+  return digits + (num >= ten_to_the[digits]);
 }
 
 /**
@@ -96,7 +116,6 @@ numlen(unsigned int num)
  * @param atom The name of the atom.
  * @returns An existing atom of the same name or a freshly created atom.
  */
-static
 ERL_NIF_TERM
 mk_atom(ErlNifEnv *env, const char *atom)
 {
@@ -114,7 +133,6 @@ mk_atom(ErlNifEnv *env, const char *atom)
  * @returns The value of the incremented counter.
  * @note Wraps around if an increment would cause an overflow.
  */
-static
 unsigned int
 gensym_incr(void)
 {
