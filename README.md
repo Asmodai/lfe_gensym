@@ -44,7 +44,7 @@ argument.  Imagine that the function is:
 ```
 What happens when we invoke `(square (random 10))`?  Place bets now.
 
-Let's walk through an exansion:
+Let's walk through an expansion:
 ``` lisp
   (square (random 10))
 ⇒ (* (random 10) (random 10))
